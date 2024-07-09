@@ -7,6 +7,13 @@ time.sleep(0.1) # Wait for USB to become ready
 
 print("Hello, Pi Pico!")
 
+slider = analogio.AnalogIn(board.GP26)
+joystickHor = analogio.AnalogIn(board.GP27)
+joystickVer = analogio.AnalogIn(board.GP28)
+
+def range_map(x, in_min, in_max, out_min, out_max):
+  return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
+
 rows = []
 for p in [board.GP9, board.GP8, board.GP7, board.GP6]:
     row = DigitalInOut(p)
@@ -61,4 +68,6 @@ while True:
   print(x)
 
   macroMap(x)
+
+  print(range_map(slider.value, 0, 65535, 0, 100))
 
