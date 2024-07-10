@@ -3,9 +3,35 @@ from digitalio import *
 import analogio
 import board
 
+import busio
+import displayio
+import terminalio
+from adafruit_display_text import label
+import adafruit_displayio_ssd1306
+
+import usb_hid
+from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keycode import Keycode
+from adafruit_hid.consumer_control import ConsumerControl
+from adafruit_hid.consumer_control_code import ConsumerControlCode
+from adafruit_hid.mouse import Mouse
+
+keyboard = Keyboard(usb_hid.devices)
+cc = ConsumerControl(usb_hid.devices)
+mouse = Mouse(usb_hid.devices)
+
 time.sleep(0.1) # Wait for USB to become ready
 
 print("Hello, Pi Pico!")
+
+i2c = busio.I2C (scl=board.GP17, sda=board.GP16)
+display_bus = displayio.I2CDisplay (i2c, device_address = 0x3C)
+display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=64)
+splash = displayio.Group()
+display.show(splash)
+color_bitmap = displayio.Bitmap(128, 64, 1) 
+color_palette = displayio.Palette(1)
+color_palette[0] = 0xFFFFFF 
 
 slider = analogio.AnalogIn(board.GP26)
 joystickHor = analogio.AnalogIn(board.GP27)
@@ -44,7 +70,7 @@ def getKey():  # Returns -999 or key value
 
 def macroMap(argument):
     switcher = {
-        0: "one",
+        0: keyboard.send(Keycode.F20),
         1: "one",
         2: "two",
         3: "two",
@@ -54,20 +80,48 @@ def macroMap(argument):
         7: "two",
         8: "two",
         9: "two",
-        10: "two",
-        11: "two",
-        12: "two",
-        13: "two",
+        10: keyboard.send(Keycode.F21),
+        11: keyboard.send(Keycode.F22),
+        12: keyboard.send(Keycode.F23),
+        13: keyboard.send(Keycode.F24),
         14: "two",
         15: "two",
     }
 
+prevVol = 0
+
 # loop
 while True:
-  x = getKey()
-  print(x)
+    x = getKey()
+    print(x)
+    macroMap(x)
+    
+    print(joystickVer.value)
+    print(joystickHor.value)
+    mouse.move(
+        x=range_map(joystickHor.value, 0, 65535, -10, 10),
+        y=range_map(joystickVer.value, 0, 65535, -10, 10),
+    )
 
-  macroMap(x)
+    inner_bitmap = displayio.Bitmap(118, 54, 1)
+    inner_palette = displayio.Palette(1)
+    inner_palette[0] = 0x000000  # Black
+    inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=5, y=4)
+    splash.append(inner_sprite)
 
-  print(range_map(slider.value, 0, 65535, 0, 100))
+    volume = range_map(slider.value, 0, 65535, 0, 100)
+    print(volume)
+
+    if volume > prevVol:
+        cc.send(ConsumerControlCode.VOLUME_INCREMENT)
+    elif volume < prevVol:
+        cc.send(ConsumerControlCode.VOLUME_DECREMENT)
+    
+    text_area = label.Label(
+        terminalio.FONT, text="Volume:" + str(volume), color=0xFFFFFF, x=28, y=64 // 2 - 1
+    )
+    splash.append(text_area)
+    display.refresh()
+
+    prevVol = volume
 
